@@ -20,5 +20,8 @@ else()
   message(STATUS "ADIOS2 is disabled")
 endif()
 
+set(OMP_TGT OFF CACHE BOOL
+  "Enable OpenMP target offloading.")
+
 add_subdirectory(src)
 add_subdirectory(tests)
