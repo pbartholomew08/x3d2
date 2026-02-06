@@ -64,7 +64,7 @@ program test_vecadd
 
   call MPI_Init(ierr)
 
-  dims_global = [32, 32, 32]
+  dims_global = [512, 512, 512]
   L_global = [1.0, 1.0, 1.0]
   nproc_dir = [1, 1, 1]
   BC_x = ["periodic", "periodic"]

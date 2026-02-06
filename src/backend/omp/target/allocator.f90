@@ -131,11 +131,11 @@ contains
 
     integer :: i
     
-    !$omp target teams distribute parallel do has_device_addr(p_data_tgt)
+    !$omp target teams loop has_device_addr(p_data_tgt)
     do i = 1, n
       p_data_tgt(i) = c
     end do
-    !$omp end target teams distribute parallel do
+    !$omp end target teams loop 
 
   end subroutine
 
