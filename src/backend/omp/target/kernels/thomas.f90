@@ -28,10 +28,11 @@ contains
     c_j = coeffs(5)
     c_p1 = coeffs(6); c_p2 = coeffs(7); c_p3 = coeffs(8); c_p4 = coeffs(9)
 
-    ! XXX: Do we want `parallel do simd`?
+    !$omp parallel ! Launch parallel region
+    ! XXX: Do we want `do simd`?
 
     ! Forward pass
-    !$omp parallel do
+    !$omp do
     do i = 1, SZ
       du(i, 1) = coeffs_s(5, 1)*u(i, 1) &
                  + coeffs_s(6, 1)*u(i, 2) &
@@ -63,10 +64,10 @@ contains
                  + coeffs_s(9, 4)*u(i, 8) &
                  - du(i, 3)*thom_s(4)
     end do
-    !$omp end parallel do
+    !$omp end do
 
     do j = 5, n_rhs - 4
-      !$omp parallel do
+      !$omp do
       do i = 1, SZ
         du(i, j) = c_m4*u(i, j - 4) + c_m3*u(i, j - 3) &
                    + c_m2*u(i, j - 2) + c_m1*u(i, j - 1) &
@@ -75,10 +76,10 @@ contains
                    + c_p3*u(i, j + 3) + c_p4*u(i, j + 4) &
                    - du(i, j - 1)*thom_s(j)
       end do
-      !$omp end parallel do
+      !$omp end do
     end do
 
-    !$omp parallel do
+    !$omp do
     do i = 1, SZ
       j = n_rhs - 3
       du(i, j) = coeffs_e(1, 1)*u(i, j - 4) &
@@ -115,23 +116,25 @@ contains
                  + coeffs_e(5, 4)*u(i, j) &
                  - du(i, j - 1)*thom_s(j)
     end do
-    !$omp end parallel do
+    !$omp end do
 
     ! Backward pass
-    !$omp parallel do
+    !$omp do
     do i = 1, SZ
       du(i, n_tds) = du(i, n_tds)*thom_w(n_tds)*strch(n_tds)
     end do
-    !$omp end parallel do
+    !$omp end do
 
     do j = n_tds - 1, 1, -1
-      !$omp parallel do
+      !$omp do
       do i = 1, SZ
         ! du(j) = (du(j) - f*du(j+1)/strch(j))*w*strch(j)
         du(i, j) = (du(i, j)*strch(j) - thom_f(j)*du(i, j + 1))*thom_w(j)
       end do
-      !$omp end parallel do
+      !$omp end do
     end do
+
+    !$omp end parallel ! End parallel region
 
   end subroutine der_univ_thom
 
@@ -160,6 +163,8 @@ contains
     c_j = coeffs(5)
     c_p1 = coeffs(6); c_p2 = coeffs(7); c_p3 = coeffs(8); c_p4 = coeffs(9)
 
+    !$omp parallel ! Launch parallel region
+
     ! Forward pass
     do j = 1, n
       jm4 = modulo(j - 5, n) + 1
@@ -171,7 +176,7 @@ contains
       jp3 = modulo(j - n + 2, n) + 1
       jp4 = modulo(j - n + 3, n) + 1
 
-      !$omp parallel do
+      !$omp do
       do i = 1, SZ
         du(i, j) = c_m4*u(i, jm4) + c_m3*u(i, jm3) &
                    + c_m2*u(i, jm2) + c_m1*u(i, jm1) &
@@ -180,39 +185,41 @@ contains
                    + c_p3*u(i, jp3) + c_p4*u(i, jp4) &
                    - du(i, jm1)*thom_s(j)
       end do
-      !$omp end parallel do
+      !$omp end do
     end do
 
     ! Backward pass
-    !$omp parallel do
+    !$omp do
     do i = 1, SZ
       du(i, n) = du(i, n)*thom_w(n)
     end do
-    !$omp end parallel do
+    !$omp end do
 
     do j = n - 1, 1, -1
-      !$omp parallel do
+      !$omp do
       do i = 1, SZ
         du(i, j) = (du(i, j) - thom_f(j)*du(i, j + 1))*thom_w(j)
       end do
-      !$omp end parallel do
+      !$omp end do
     end do
 
     ! Periodic final pass
-    !$omp parallel do
+    !$omp do
     do i = 1, SZ
       ss(i) = (du(i, 1) - alpha*du(i, n)) &
               /(1.0_dp + thom_p(1) - alpha*thom_p(n))
     end do
-    !$omp end parallel do
+    !$omp end do
 
     do j = 1, n
-      !$omp parallel do
+      !$omp do
       do i = 1, SZ
         du(i, j) = (du(i, j) - ss(i)*thom_p(j))*strch(j)
       end do
-      !$omp end parallel do
+      !$omp end do
     end do
+
+    !$omp end parallel ! Exit parallel region
 
   end subroutine der_univ_thom_per
 
