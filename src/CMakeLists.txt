@@ -49,6 +49,7 @@ set(BACKENDSRC
 set(OMPTGTSRC # For OMP offloading
   backend/omp/target/allocator.f90
   backend/omp/target/kernels/thomas.f90
+  backend/omp/target/exec_thom.f90
   )
 set(2DECOMPFFTSRC
   backend/omp/poisson_fft.f90

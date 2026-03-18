@@ -7,134 +7,143 @@ module m_omptgt_kernels_thom
 contains
 
   subroutine der_univ_thom(du, u, n_tds, n_rhs, coeffs_s, coeffs_e, coeffs, &
-                           thom_f, thom_s, thom_w, strch)
+                           thom_f, thom_s, thom_w, strch, n_groups)
     implicit none
 
-    real(dp), dimension(:, :), intent(out) :: du
-    real(dp), dimension(:, :), intent(in) :: u
+    real(dp), dimension(:, :, :), intent(out) :: du
+    real(dp), dimension(:, :, :), intent(in) :: u
     integer, intent(in) :: n_tds, n_rhs
     real(dp), intent(in), dimension(:, :) :: coeffs_s, coeffs_e ! start/end
     real(dp), intent(in), dimension(:) :: coeffs
     real(dp), intent(in), dimension(:) :: thom_f, thom_s, thom_w, strch
+    integer, intent(in) :: n_groups
 
-    integer :: i, j
+    integer :: i, j, k
     real(dp) :: c_m4, c_m3, c_m2, c_m1, c_j, c_p1, c_p2, c_p3, c_p4
 
-    ! Declare this subroutine for offloading
-    !$omp declare target
+    ! XXX: Do we want `do simd`?
+
+    !$omp target data map(to:u, coeffs_s, coeffs_e, coeffs, thom_f, thom_s, thom_w, strch) map(from:du)
+
+    ! Forward pass
+    !$omp target teams distribute parallel do collapse(2) has_device_addr(du, u, coeffs_s, thom_s)
+    do k = 1, n_groups
+      do i = 1, SZ
+        du(i, 1, k) = coeffs_s(5, 1)*u(i, 1, k) &
+                   + coeffs_s(6, 1)*u(i, 2, k) &
+                   + coeffs_s(7, 1)*u(i, 3, k) &
+                   + coeffs_s(8, 1)*u(i, 4, k) &
+                   + coeffs_s(9, 1)*u(i, 5, k)
+        du(i, 2, k) = coeffs_s(4, 2)*u(i, 1, k) &
+                   + coeffs_s(5, 2)*u(i, 2, k) &
+                   + coeffs_s(6, 2)*u(i, 3, k) &
+                   + coeffs_s(7, 2)*u(i, 4, k) &
+                   + coeffs_s(8, 2)*u(i, 5, k) &
+                   + coeffs_s(9, 2)*u(i, 6, k) &
+                   - du(i, 1, k)*thom_s(2)
+        du(i, 3, k) = coeffs_s(3, 3)*u(i, 1, k) &
+                   + coeffs_s(4, 3)*u(i, 2, k) &
+                   + coeffs_s(5, 3)*u(i, 3, k) &
+                   + coeffs_s(6, 3)*u(i, 4, k) &
+                   + coeffs_s(7, 3)*u(i, 5, k) &
+                   + coeffs_s(8, 3)*u(i, 6, k) &
+                   + coeffs_s(9, 3)*u(i, 7, k) &
+                   - du(i, 2, k)*thom_s(3)
+        du(i, 4, k) = coeffs_s(2, 4)*u(i, 1, k) &
+                   + coeffs_s(3, 4)*u(i, 2, k) &
+                   + coeffs_s(4, 4)*u(i, 3, k) &
+                   + coeffs_s(5, 4)*u(i, 4, k) &
+                   + coeffs_s(6, 4)*u(i, 5, k) &
+                   + coeffs_s(7, 4)*u(i, 6, k) &
+                   + coeffs_s(8, 4)*u(i, 7, k) &
+                   + coeffs_s(9, 4)*u(i, 8, k) &
+                   - du(i, 3, k)*thom_s(4)
+      end do
+    end do
+    !$omp end target teams distribute parallel do
 
     ! store bulk coeffs in the registers
     c_m4 = coeffs(1); c_m3 = coeffs(2); c_m2 = coeffs(3); c_m1 = coeffs(4)
     c_j = coeffs(5)
     c_p1 = coeffs(6); c_p2 = coeffs(7); c_p3 = coeffs(8); c_p4 = coeffs(9)
 
-    !$omp parallel ! Launch parallel region
-    ! XXX: Do we want `do simd`?
-
-    ! Forward pass
-    !$omp do
-    do i = 1, SZ
-      du(i, 1) = coeffs_s(5, 1)*u(i, 1) &
-                 + coeffs_s(6, 1)*u(i, 2) &
-                 + coeffs_s(7, 1)*u(i, 3) &
-                 + coeffs_s(8, 1)*u(i, 4) &
-                 + coeffs_s(9, 1)*u(i, 5)
-      du(i, 2) = coeffs_s(4, 2)*u(i, 1) &
-                 + coeffs_s(5, 2)*u(i, 2) &
-                 + coeffs_s(6, 2)*u(i, 3) &
-                 + coeffs_s(7, 2)*u(i, 4) &
-                 + coeffs_s(8, 2)*u(i, 5) &
-                 + coeffs_s(9, 2)*u(i, 6) &
-                 - du(i, 1)*thom_s(2)
-      du(i, 3) = coeffs_s(3, 3)*u(i, 1) &
-                 + coeffs_s(4, 3)*u(i, 2) &
-                 + coeffs_s(5, 3)*u(i, 3) &
-                 + coeffs_s(6, 3)*u(i, 4) &
-                 + coeffs_s(7, 3)*u(i, 5) &
-                 + coeffs_s(8, 3)*u(i, 6) &
-                 + coeffs_s(9, 3)*u(i, 7) &
-                 - du(i, 2)*thom_s(3)
-      du(i, 4) = coeffs_s(2, 4)*u(i, 1) &
-                 + coeffs_s(3, 4)*u(i, 2) &
-                 + coeffs_s(4, 4)*u(i, 3) &
-                 + coeffs_s(5, 4)*u(i, 4) &
-                 + coeffs_s(6, 4)*u(i, 5) &
-                 + coeffs_s(7, 4)*u(i, 6) &
-                 + coeffs_s(8, 4)*u(i, 7) &
-                 + coeffs_s(9, 4)*u(i, 8) &
-                 - du(i, 3)*thom_s(4)
-    end do
-    !$omp end do
-
-    do j = 5, n_rhs - 4
-      !$omp do
+    !$omp target teams distribute parallel do private(j) collapse(2) has_device_addr(du, u, thom_s)
+    do k = 1, n_groups
       do i = 1, SZ
-        du(i, j) = c_m4*u(i, j - 4) + c_m3*u(i, j - 3) &
-                   + c_m2*u(i, j - 2) + c_m1*u(i, j - 1) &
-                   + c_j*u(i, j) &
-                   + c_p1*u(i, j + 1) + c_p2*u(i, j + 2) &
-                   + c_p3*u(i, j + 3) + c_p4*u(i, j + 4) &
-                   - du(i, j - 1)*thom_s(j)
+        do j = 5, n_rhs - 4
+          du(i, j, k) = c_m4*u(i, j - 4, k) + c_m3*u(i, j - 3, k) &
+                     + c_m2*u(i, j - 2, k) + c_m1*u(i, j - 1, k) &
+                     + c_j*u(i, j, k) &
+                     + c_p1*u(i, j + 1, k) + c_p2*u(i, j + 2, k) &
+                     + c_p3*u(i, j + 3, k) + c_p4*u(i, j + 4, k) &
+                     - du(i, j - 1, k)*thom_s(j)
+        end do
       end do
-      !$omp end do
     end do
+    !$omp end target teams distribute parallel do
 
-    !$omp do
-    do i = 1, SZ
-      j = n_rhs - 3
-      du(i, j) = coeffs_e(1, 1)*u(i, j - 4) &
-                 + coeffs_e(2, 1)*u(i, j - 3) &
-                 + coeffs_e(3, 1)*u(i, j - 2) &
-                 + coeffs_e(4, 1)*u(i, j - 1) &
-                 + coeffs_e(5, 1)*u(i, j) &
-                 + coeffs_e(6, 1)*u(i, j + 1) &
-                 + coeffs_e(7, 1)*u(i, j + 2) &
-                 + coeffs_e(8, 1)*u(i, j + 3) &
-                 - du(i, j - 1)*thom_s(j)
-      j = n_rhs - 2
-      du(i, j) = coeffs_e(1, 2)*u(i, j - 4) &
-                 + coeffs_e(2, 2)*u(i, j - 3) &
-                 + coeffs_e(3, 2)*u(i, j - 2) &
-                 + coeffs_e(4, 2)*u(i, j - 1) &
-                 + coeffs_e(5, 2)*u(i, j) &
-                 + coeffs_e(6, 2)*u(i, j + 1) &
-                 + coeffs_e(7, 2)*u(i, j + 2) &
-                 - du(i, j - 1)*thom_s(j)
-      j = n_rhs - 1
-      du(i, j) = coeffs_e(1, 3)*u(i, j - 4) &
-                 + coeffs_e(2, 3)*u(i, j - 3) &
-                 + coeffs_e(3, 3)*u(i, j - 2) &
-                 + coeffs_e(4, 3)*u(i, j - 1) &
-                 + coeffs_e(5, 3)*u(i, j) &
-                 + coeffs_e(6, 3)*u(i, j + 1) &
-                 - du(i, j - 1)*thom_s(j)
-      j = n_rhs
-      du(i, j) = coeffs_e(1, 4)*u(i, j - 4) &
-                 + coeffs_e(2, 4)*u(i, j - 3) &
-                 + coeffs_e(3, 4)*u(i, j - 2) &
-                 + coeffs_e(4, 4)*u(i, j - 1) &
-                 + coeffs_e(5, 4)*u(i, j) &
-                 - du(i, j - 1)*thom_s(j)
+    !$omp target teams distribute parallel do private(j) collapse(2) has_device_addr(du, u, coeffs_e, thom_s)
+    do k = 1, n_groups
+      do i = 1, SZ
+        j = n_rhs - 3
+        du(i, j, k) = coeffs_e(1, 1)*u(i, j - 4, k) &
+                   + coeffs_e(2, 1)*u(i, j - 3, k) &
+                   + coeffs_e(3, 1)*u(i, j - 2, k) &
+                   + coeffs_e(4, 1)*u(i, j - 1, k) &
+                   + coeffs_e(5, 1)*u(i, j - 0, k) &
+                   + coeffs_e(6, 1)*u(i, j + 1, k) &
+                   + coeffs_e(7, 1)*u(i, j + 2, k) &
+                   + coeffs_e(8, 1)*u(i, j + 3, k) &
+                   - du(i, j - 1, k)*thom_s(j)
+        j = n_rhs - 2
+        du(i, j, k) = coeffs_e(1, 2)*u(i, j - 4, k) &
+                   + coeffs_e(2, 2)*u(i, j - 3, k) &
+                   + coeffs_e(3, 2)*u(i, j - 2, k) &
+                   + coeffs_e(4, 2)*u(i, j - 1, k) &
+                   + coeffs_e(5, 2)*u(i, j - 0, k) &
+                   + coeffs_e(6, 2)*u(i, j + 1, k) &
+                   + coeffs_e(7, 2)*u(i, j + 2, k) &
+                   - du(i, j - 1, k)*thom_s(j)
+        j = n_rhs - 1
+        du(i, j, k) = coeffs_e(1, 3)*u(i, j - 4, k) &
+                   + coeffs_e(2, 3)*u(i, j - 3, k) &
+                   + coeffs_e(3, 3)*u(i, j - 2, k) &
+                   + coeffs_e(4, 3)*u(i, j - 1, k) &
+                   + coeffs_e(5, 3)*u(i, j - 0, k) &
+                   + coeffs_e(6, 3)*u(i, j + 1, k) &
+                   - du(i, j - 1, k)*thom_s(j)
+        j = n_rhs
+        du(i, j, k) = coeffs_e(1, 4)*u(i, j - 4, k) &
+                   + coeffs_e(2, 4)*u(i, j - 3, k) &
+                   + coeffs_e(3, 4)*u(i, j - 2, k) &
+                   + coeffs_e(4, 4)*u(i, j - 1, k) &
+                   + coeffs_e(5, 4)*u(i, j - 0, k) &
+                   - du(i, j - 1, k)*thom_s(j)
+      end do
     end do
-    !$omp end do
+    !$omp end target teams distribute parallel do
 
     ! Backward pass
-    !$omp do
-    do i = 1, SZ
-      du(i, n_tds) = du(i, n_tds)*thom_w(n_tds)*strch(n_tds)
-    end do
-    !$omp end do
-
-    do j = n_tds - 1, 1, -1
-      !$omp do
+    !$omp target teams distribute parallel do collapse(2) has_device_addr(du, thom_w, strch)
+    do k = 1, n_groups
       do i = 1, SZ
-        ! du(j) = (du(j) - f*du(j+1)/strch(j))*w*strch(j)
-        du(i, j) = (du(i, j)*strch(j) - thom_f(j)*du(i, j + 1))*thom_w(j)
+        du(i, n_tds, k) = du(i, n_tds, k)*thom_w(n_tds)*strch(n_tds)
       end do
-      !$omp end do
     end do
+    !$omp end target teams distribute parallel do
 
-    !$omp end parallel ! End parallel region
+    !$omp target teams distribute parallel do collapse(2) private(j) has_device_addr(du, thom_f, thom_w, strch)
+    do k = 1, n_groups
+      do i = 1, SZ
+        do j = n_tds - 1, 1, -1
+          ! du(j) = (du(j) - f*du(j+1)/strch(j))*w*strch(j)
+          du(i, j, k) = (du(i, j, k)*strch(j) - thom_f(j)*du(i, j + 1, k))*thom_w(j)
+        end do
+      end do
+    end do
+    !$omp end target teams distribute parallel do
+
+    !$omp end target data
 
   end subroutine der_univ_thom
 
@@ -163,7 +172,7 @@ contains
     c_j = coeffs(5)
     c_p1 = coeffs(6); c_p2 = coeffs(7); c_p3 = coeffs(8); c_p4 = coeffs(9)
 
-    !$omp parallel ! Launch parallel region
+    !$omp target parallel has_device_addr(du, u, coeffs, thom_f, thom_s, thom_w, thom_p, strch) ! Launch parallel region
 
     ! Forward pass
     do j = 1, n
@@ -219,7 +228,7 @@ contains
       !$omp end do
     end do
 
-    !$omp end parallel ! Exit parallel region
+    !$omp end target parallel ! Exit parallel region
 
   end subroutine der_univ_thom_per
 
