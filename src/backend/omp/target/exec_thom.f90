@@ -30,13 +30,6 @@ contains
                               n_groups &
                               )
     else
-!!!       call exec_thom_tds_compact_(du, u, &
-!!!                                   tdsops%n_tds, tdsops%n_rhs, &
-!!!                                   tdsops%coeffs_s, tdsops%coeffs_e, tdsops%coeffs, &
-!!!                                   tdsops%thom_f, tdsops%thom_s, tdsops%thom_w, &
-!!!                                   tdsops%stretch, &
-!!!                                   n_groups &
-!!!                                   )
        call der_univ_thom(du, u, &
                           tdsops%n_tds, tdsops%n_rhs, &
                           tdsops%coeffs_s, tdsops%coeffs_e, tdsops%coeffs, &
@@ -48,50 +41,6 @@ contains
     end if
 
   end subroutine exec_thom_tds_compact
-
-  subroutine exec_thom_tds_compact_(du, u, &
-                                    n_tds, n_rhs, &
-                                    coeffs_s, coeffs_e, coeffs, &
-                                    thom_f, thom_s, thom_w, &
-                                    stretch, &
-                                    n_groups &
-                                    )
-    
-    real(dp), dimension(:, :, :), intent(out) :: du
-    real(dp), dimension(:, :, :), intent(in) :: u
-    integer, intent(in) :: n_tds, n_rhs
-    real(dp), intent(in), dimension(:, :) :: coeffs_s, coeffs_e ! start/end
-    real(dp), intent(in), dimension(:) :: coeffs
-    real(dp), intent(in), dimension(:) :: thom_f, thom_s, thom_w
-    real(dp), intent(in), dimension(:) :: stretch
-    integer, intent(in) :: n_groups
-
-!!!    !$omp target data map(to:u, coeffs_s, coeffs_e, coeffs, thom_f, thom_s, thom_w, stretch) map(from:du)
-!!!    !$omp target teams distribute
-!!!    do k = 1, n_groups
-!!!      call der_univ_thom( &
-!!!        du(:, :, k), u(:, :, k), n_tds, n_rhs, &
-!!!        coeffs_s, coeffs_e, coeffs, &
-!!!        thom_f, thom_s, thom_w, &
-!!!        stretch &
-!!!        )
-!!!    end do
-!!!    !$omp end target teams distribute
-!!!    !$omp end target data
-
-    du = 42.0_dp
-    print *, "+++:", minval(du), maxval(du)
-    !$omp target data map(to:u, coeffs_s, coeffs_e, coeffs, thom_f, thom_s, thom_w, stretch) map(from:du)
-    call der_univ_thom( &
-      du, u, n_tds, n_rhs, &
-      coeffs_s, coeffs_e, coeffs, &
-      thom_f, thom_s, thom_w, &
-      stretch, n_groups &
-      )
-    !$omp end target data
-    print *, "+++:", minval(du), maxval(du)
-
-  end subroutine
 
   subroutine exec_thom_tds_per_(du, u, &
                                 n_tds, &
