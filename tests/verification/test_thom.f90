@@ -75,7 +75,7 @@ program test_thom
 #else
 #ifdef OMP_TGT
   ! move data to device
-  !$omp target data map(to: u, tdsops%thom_s, tdsops%thom_f, tdsops%thom_f) map(from: du)
+  !$omp target data map(to: u) map(from: du)
 #endif
 #endif
 
@@ -83,6 +83,10 @@ program test_thom
   tdsops = tdsops_init(n, dx_per, &
                        operation="second-deriv", scheme="compact6", &
                        bc_start=BC_PERIODIC, bc_end=BC_PERIODIC)
+#ifdef OMP_TGT
+  ! move data to device
+  !$omp target data map(to: tdsops%thom_s, tdsops%thom_f, tdsops%thom_w, tdsops%thom_p)
+#endif
 
 #ifdef CUDA
   blocks = dim3(n_groups, 1, 1)
@@ -100,6 +104,7 @@ program test_thom
 #else
 #ifdef OMP_TGT
   ! move data to host
+  !$omp end target data
   !$omp end target data
 #endif
 #endif
@@ -123,7 +128,7 @@ program test_thom
 #else
 #ifdef OMP_TGT
   ! move data to device
-  !$omp target data map(to: u, tdsops%thom_s, tdsops%thom_f, tdsops%thom_f) map(from: du)
+  !$omp target data map(to: u) map(from: du)
 #endif
 #endif
 
@@ -135,6 +140,9 @@ program test_thom
 #ifdef CUDA
   call exec_thom_tds_compact(du_dev, u_dev, tdsops, blocks, threads)
 #else
+#ifdef OMP_TGT
+  !$omp target data map(to: tdsops%thom_s, tdsops%thom_f, tdsops%thom_w)
+#endif
   call exec_thom_tds_compact(du, u, tdsops, n_groups)
 #endif
 
@@ -144,6 +152,7 @@ program test_thom
 #else
 #ifdef OMP_TGT
   ! move data to host
+  !$omp end target data
   !$omp end target data
 #endif
 #endif
