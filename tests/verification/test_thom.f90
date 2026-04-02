@@ -11,7 +11,11 @@ program test_thom
 #else
   use m_omp_common, only: SZ
   use m_tdsops, only: tdsops_t, tdsops_init
+#ifndef OMP_TGT
   use m_exec_thom, only: exec_thom_tds_compact
+#else
+  use m_omptgt_exec_thom, only: exec_thom_tds_compact
+#endif
 #endif
   use m_test_utils, only: checkerr
   implicit none
@@ -38,7 +42,11 @@ program test_thom
   n_groups = 128*128/SZ
 #else
   n_glob = 1024
+#ifndef OMP_TGT
   n_groups = 64*64/SZ
+#else
+  n_groups = 128*128/SZ
+#endif
 #endif
   n = n_glob
 
@@ -64,6 +72,11 @@ program test_thom
 #ifdef CUDA
   ! move data to device
   u_dev = u
+#else
+#ifdef OMP_TGT
+  ! move data to device
+  !$omp target data map(to: u, tdsops%thom_s, tdsop%thom_f, tdsops%thom_f) map(from: du)
+#endif
 #endif
 
   ! preprocess the operator and coefficient arrays
@@ -84,6 +97,11 @@ program test_thom
 #ifdef CUDA
   ! move data to host
   du = du_dev
+#else
+#ifdef OMP_TGT
+  ! move data to host
+  !$omp target end data
+#endif
 #endif
 
   call checkerr(u, du, residual_tol, 'thom_periodic', allpass)
@@ -102,6 +120,12 @@ program test_thom
 #ifdef CUDA
   ! move data to device
   u_dev = u
+#else
+#else
+#ifdef OMP_TGT
+  ! move data to device
+  !$omp target data map(to: u, tdsops%thom_s, tdsop%thom_f, tdsops%thom_f) map(from: du)
+#endif
 #endif
 
   ! preprocess the operator and coefficient arrays
@@ -118,6 +142,11 @@ program test_thom
 #ifdef CUDA
   ! move data to host
   du = du_dev
+#else
+#ifdef OMP_TGT
+  ! move data to host
+  !$omp target end data
+#endif
 #endif
 
   call checkerr(u, du, residual_tol, 'thom_dirichlet', allpass)
