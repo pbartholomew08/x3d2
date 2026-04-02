@@ -75,7 +75,7 @@ program test_thom
 #else
 #ifdef OMP_TGT
   ! move data to device
-  !$omp target data map(to: u, tdsops%thom_s, tdsop%thom_f, tdsops%thom_f) map(from: du)
+  !$omp target data map(to: u, tdsops%thom_s, tdsops%thom_f, tdsops%thom_f) map(from: du)
 #endif
 #endif
 
@@ -100,7 +100,7 @@ program test_thom
 #else
 #ifdef OMP_TGT
   ! move data to host
-  !$omp target end data
+  !$omp end target data
 #endif
 #endif
 
@@ -121,10 +121,9 @@ program test_thom
   ! move data to device
   u_dev = u
 #else
-#else
 #ifdef OMP_TGT
   ! move data to device
-  !$omp target data map(to: u, tdsops%thom_s, tdsop%thom_f, tdsops%thom_f) map(from: du)
+  !$omp target data map(to: u, tdsops%thom_s, tdsops%thom_f, tdsops%thom_f) map(from: du)
 #endif
 #endif
 
@@ -145,7 +144,7 @@ program test_thom
 #else
 #ifdef OMP_TGT
   ! move data to host
-  !$omp target end data
+  !$omp end target data
 #endif
 #endif
 
