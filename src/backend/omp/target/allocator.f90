@@ -34,7 +34,6 @@ module m_omptgt_allocator
   type, extends(field_t) :: omptgt_field_t
     ! A device-resident field
     integer, private :: dev_id
-    type(c_ptr), private :: dev_ptr = c_null_ptr
     real(dp), pointer, private :: p_data_tgt(:) => null()
     real(dp), pointer, contiguous :: data_tgt(:, :, :) => null()
   contains
@@ -82,33 +81,29 @@ contains
     f%next => next
     f%id = id
 
-    f%dev_id = omp_get_default_device()
-    if (f%dev_id == omp_get_initial_device()) then
-      error stop "Device ID is HOST"
-    end if
-
-    f%dev_ptr = omp_target_alloc(ngrid*c_sizeof(0.0_dp), f%dev_id)
-    call c_f_pointer(f%dev_ptr, f%p_data_tgt, shape=[ngrid])
+    allocate(f%p_data_tgt(ngrid))
+    f%data_tgt(1:ngrid, 1:1, 1:1) => f%p_data_tgt
+    !$omp target enter data map(to:f%data_tgt(1:ngrid, 1:1, 1:1))
 
   end subroutine omptgt_field_init
 
   subroutine omptgt_field_destroy(self)
     type(omptgt_field_t) :: self
 
-    nullify (self%data_tgt)
-    nullify (self%p_data_tgt)
+    !$omp target exit data map(release:self%data_tgt)
+    nullify(self%data_tgt)
+    deallocate(self%p_data_tgt)
 
-    if (c_associated(self%dev_ptr)) then
-      call omp_target_free(self%dev_ptr, self%dev_id)
-    end if
   end subroutine
 
   subroutine fill_omptgt(self, c)
     class(omptgt_field_t) :: self
     real(dp), intent(in) :: c
 
-    !call fill_omptgt_(self%p_data_tgt, c, size(self%p_data_tgt))
-    call fill_omptgt_3d_(self%data_tgt, c)
+    call fill_omptgt_(self%p_data_tgt, c, size(self%p_data_tgt))
+    !$omp target exit data map(release:self%data_tgt)
+    !$omp target enter data map(to:self%data_tgt)
+    !call fill_omptgt_3d_(self%data_tgt, c)
 
   end subroutine fill_omptgt
 
@@ -119,7 +114,7 @@ contains
 
     integer :: i
 
-    !$omp target teams loop has_device_addr(p_data_tgt)
+    !$omp target teams loop map(tofrom:p_data_tgt)
     do i = 1, n
       p_data_tgt(i) = c
     end do
@@ -136,7 +131,7 @@ contains
 
     n = shape(data_tgt)
 
-    !$omp target teams loop collapse(3) has_device_addr(data_tgt)
+    !$omp target teams loop collapse(3) map(present, tofrom:data_tgt(n(1),n(2),n(3)))
     do k = 1, n(3)
       do j = 1, n(2)
         do i = 1, n(1)
@@ -158,7 +153,9 @@ contains
     class(omptgt_field_t) :: self
     integer, intent(in) :: dims(3)
 
-    call c_f_pointer(self%dev_ptr, self%data_tgt, shape=dims)
+    !$omp target exit data map(from:self%data_tgt)
+    self%data_tgt(1:dims(1), 1:dims(2), 1:dims(3)) => self%p_data_tgt
+    !$omp target enter data map(to:self%data_tgt(1:dims(1), 1:dims(2), 1:dims(3)))
 
   end subroutine
 
