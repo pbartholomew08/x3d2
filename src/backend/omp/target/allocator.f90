@@ -131,7 +131,7 @@ contains
 
     n = shape(data_tgt)
 
-    !$omp target teams loop collapse(3) map(present, tofrom:data_tgt(n(1),n(2),n(3)))
+    !$omp target teams loop collapse(3) map(from:data_tgt)
     do k = 1, n(3)
       do j = 1, n(2)
         do i = 1, n(1)
@@ -153,7 +153,7 @@ contains
     class(omptgt_field_t) :: self
     integer, intent(in) :: dims(3)
 
-    !$omp target exit data map(from:self%data_tgt)
+    !$omp target exit data map(release:self%data_tgt)
     self%data_tgt(1:dims(1), 1:dims(2), 1:dims(3)) => self%p_data_tgt
     !$omp target enter data map(to:self%data_tgt(1:dims(1), 1:dims(2), 1:dims(3)))
 

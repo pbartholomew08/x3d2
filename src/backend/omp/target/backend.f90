@@ -81,7 +81,7 @@ contains
 
     n = shape(dst)
 
-    !$omp target teams loop collapse(3) map(present, tofrom:dst, src)
+    !$omp target teams loop collapse(3) map(to:src) map(from:dst)
     do k = 1, n(3)
       do j = 1, n(2)
         do i = 1, n(1)
@@ -144,7 +144,7 @@ contains
 
     integer :: i, j, k
 
-    !$omp target teams loop collapse(3) map(present, tofrom:x, y)
+    !$omp target teams loop collapse(3) map(to:x) map(tofrom:y)
     do k = 1, dims(3)
       do j = 1, dims(2)
         do i = 1, dims(1)
@@ -182,7 +182,7 @@ contains
     integer :: i, j, k
 
     ! XXX: This could be improved following cuda/backend.f90:resolve_field_t()
-    !$omp target teams loop collapse(3) map(to:d) map(present, tofrom:f_arr)
+    !$omp target teams loop collapse(3) map(to:d) map(tofrom:f_arr)
     do k = 1, dims(3)
       do j = 1, dims(2)
         do i = 1, dims(1)
@@ -219,7 +219,7 @@ contains
 
     integer :: i, j, k
 
-    !$omp target teams loop collapse(3) map(from:data) map(present, tofrom:f_arr)
+    !$omp target teams loop collapse(3) map(from:data) map(to:f_arr)
     do k = 1, dims(3)
       do j = 1, dims(2)
         do i = 1, dims(1)
@@ -248,10 +248,10 @@ contains
     type is (omptgt_field_t)
       select type (u)
       type is (omptgt_field_t)
-        call reorder_omptgt_dd(u_%data_tgt, u%data_tgt, dims, dir_from, &
+        call reorder_omptgt_(u_%data_tgt, u%data_tgt, dims, dir_from, &
                                dir_to, cart_padded)
       class default
-        call reorder_omptgt_dh(u_%data_tgt, u%data, dims, dir_from, dir_to, &
+        call reorder_omptgt_(u_%data_tgt, u%data, dims, dir_from, dir_to, &
                                cart_padded)
       end select
     class default
@@ -263,7 +263,7 @@ contains
 
   end subroutine reorder_omptgt
 
-  subroutine reorder_omptgt_dd(u_, u, dims, dir_from, dir_to, cart_padded)
+  subroutine reorder_omptgt_(u_, u, dims, dir_from, dir_to, cart_padded)
     real(dp), dimension(:, :, :), pointer :: u_
     real(dp), dimension(:, :, :), pointer, intent(in) :: u
     integer, dimension(3), intent(in) :: dims
@@ -273,31 +273,7 @@ contains
     integer :: i, j, k
     integer :: out_i, out_j, out_k
 
-    !$omp target teams loop collapse(3) private(out_i, out_j, out_k) map(present, tofrom:u_, u)
-    do k = 1, dims(3)
-      do j = 1, dims(2)
-        do i = 1, dims(1)
-          call get_index_reordering(out_i, out_j, out_k, i, j, k, &
-                                    dir_from, dir_to, SZ, cart_padded)
-          u_(out_i, out_j, out_k) = u(i, j, k)
-        end do
-      end do
-    end do
-    !$omp end target teams loop
-
-  end subroutine
-
-  subroutine reorder_omptgt_dh(u_, u, dims, dir_from, dir_to, cart_padded)
-    real(dp), dimension(:, :, :), pointer :: u_
-    real(dp), dimension(:, :, :), pointer, intent(in) :: u
-    integer, dimension(3), intent(in) :: dims
-    integer, intent(in) :: dir_from, dir_to
-    integer, dimension(3), intent(in) :: cart_padded
-
-    integer :: i, j, k
-    integer :: out_i, out_j, out_k
-
-    !$omp target teams loop collapse(3) private(out_i, out_j, out_k) map(to:u) map(present, tofrom:u_)
+    !$omp target teams loop collapse(3) private(out_i, out_j, out_k) map(to:u) map(from:u_)
     do k = 1, dims(3)
       do j = 1, dims(2)
         do i = 1, dims(1)
